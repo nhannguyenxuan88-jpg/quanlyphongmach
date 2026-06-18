@@ -2,7 +2,9 @@
   "permissions": {
     "allow": [
       "Bash(rm -rf quanlyphongmach)",
-      "Bash(git add *)"
+      "Bash(git add *)",
+      "Bash(git commit -q -m 'Add clinic management app source *)",
+      "Bash(git push *)"
     ]
   }
 }
