@@ -1,0 +1,335 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+@import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  
+  --radius-3xl: 1.5rem;
+  --radius-4xl: 2rem;
+  
+  --color-slate-105: #f4f7fa;
+  --color-slate-150: #e2e8f0;
+  --color-slate-205: #cbd5e1;
+  --color-slate-250: #94a3b8;
+  --color-indigo-650: #4f46e5;
+  --color-indigo-500: #6366f1;
+}
+
+/* Base style resets */
+body {
+  background-color: #F8FAFC;
+  color: #0f172a;
+  font-family: var(--font-sans);
+  background-image: 
+    radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.03) 0px, transparent 50%),
+    radial-gradient(at 50% 0%, rgba(13, 148, 136, 0.02) 0px, transparent 50%),
+    radial-gradient(at 100% 0%, rgba(99, 102, 241, 0.03) 0px, transparent 50%);
+  background-attachment: fixed;
+}
+
+.dark body {
+  background-color: #0f172a;
+  color: #e2e8f0;
+  background-image: 
+    radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.02) 0px, transparent 50%),
+    radial-gradient(at 50% 0%, rgba(13, 148, 136, 0.01) 0px, transparent 50%),
+    radial-gradient(at 100% 0%, rgba(99, 102, 241, 0.02) 0px, transparent 50%);
+}
+
+/* Custom scrollbar to look sleek in Bento cards */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #e2e8f0;
+  border-radius: 99px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #cbd5e1;
+}
+
+/* Glassmorphism utility */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+}
+
+.glass-pill {
+  background: rgba(255, 255, 255, 0.45);
+  backdrop-filter: blur(4px);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+}
+
+/* Premium Bento Grid card */
+.bento-card {
+  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.015), 0 2px 6px -1px rgba(15, 23, 42, 0.01);
+}
+
+.bento-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 
+    0 20px 30px -10px rgba(99, 102, 241, 0.05), 
+    0 1px 3px 0 rgba(99, 102, 241, 0.02),
+    0 0 0 1px rgba(99, 102, 241, 0.08);
+  border-color: rgba(99, 102, 241, 0.2);
+}
+
+/* Custom interactive input focus glow */
+input, select, textarea {
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+input:focus, select:focus, textarea:focus {
+  border-color: #6366f1 !important;
+  box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.12) !important;
+}
+
+/* Modal and Toast custom CSS animations */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { transform: translateY(30px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes scaleUp {
+  from { transform: scale(0.96); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+@keyframes toastSlideIn {
+  from { transform: translateX(120%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes pulseGlow {
+  0%, 100% { opacity: 0.8; }
+  50% { opacity: 1; transform: scale(1.02); }
+}
+
+@keyframes stampRotate {
+  0% { transform: rotate(0deg) scale(1); }
+  50% { transform: rotate(15deg) scale(1.06); }
+  100% { transform: rotate(12deg) scale(1); }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-slide-up {
+  animation: slideUp 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-scale-up {
+  animation: scaleUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-toast-slide-in {
+  animation: toastSlideIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-pulse-glow {
+  animation: pulseGlow 2s infinite ease-in-out;
+}
+
+.animate-stamp {
+  animation: stampRotate 3s infinite ease-in-out;
+}
+
+/* Custom micro-interactions */
+.tab-active-glow {
+  box-shadow: 0 4px 14px 0 rgba(99, 102, 241, 0.25);
+}
+
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.animate-spin-hover:hover {
+  transform: rotate(180deg);
+  transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* ==========================================
+   DARK MODE SELECTOR & CONTRAST OVERRIDES
+   ========================================== */
+.dark body {
+  background-color: #0f172a;
+  color: #f8fafc;
+}
+
+/* Bento card adaptation */
+.dark .bento-card {
+  background-color: #1e293b !important;
+  border-color: #334155 !important;
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.3), 0 2px 6px -1px rgba(0, 0, 0, 0.2);
+}
+
+.dark .bento-card:hover {
+  box-shadow: 
+    0 20px 30px -10px rgba(0, 0, 0, 0.4), 
+    0 1px 3px 0 rgba(0, 0, 0, 0.1),
+    0 0 0 1px rgba(14, 165, 233, 0.2);
+  border-color: rgba(14, 165, 233, 0.4) !important;
+}
+
+/* Glassmorphism adaptation */
+.dark .glass-panel {
+  background: rgba(30, 41, 59, 0.8) !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+.dark .glass-pill {
+  background: rgba(30, 41, 59, 0.5) !important;
+  border-color: rgba(255, 255, 255, 0.05) !important;
+}
+
+/* Input elements adaptation */
+.dark input, 
+.dark select, 
+.dark textarea {
+  background-color: #0f172a !important;
+  border-color: #334155 !important;
+  color: #f8fafc !important;
+}
+
+.dark input::placeholder,
+.dark textarea::placeholder {
+  color: #64748b !important;
+}
+
+.dark input:focus, 
+.dark select:focus, 
+.dark textarea:focus {
+  border-color: #0EA5E9 !important;
+  box-shadow: 0 0 0 4px rgba(14, 165, 233, 0.15) !important;
+}
+
+/* Global color classes overrides for text and backgrounds inside cards */
+.dark .bg-white {
+  background-color: #1e293b !important;
+}
+
+.dark .bg-slate-50,
+.dark .bg-slate-100 {
+  background-color: #0f172a !important;
+}
+
+.dark .bg-slate-50\/50 {
+  background-color: rgba(15, 23, 42, 0.5) !important;
+}
+
+.dark .bg-indigo-50\/45 {
+  background-color: rgba(99, 102, 241, 0.15) !important;
+}
+
+.dark .border-slate-100,
+.dark .border-slate-150,
+.dark .border-slate-200,
+.dark .border-slate-200\/80 {
+  border-color: #334155 !important;
+}
+
+.dark .divide-slate-100 > :not([hidden]) ~ :not([hidden]) {
+  border-color: #334155 !important;
+}
+
+/* slate text color overrides to light slate in dark mode */
+.dark .text-slate-900,
+.dark .text-slate-800,
+.dark .text-slate-700,
+.dark .text-slate-650,
+.dark .text-slate-600 {
+  color: #e2e8f0 !important;
+}
+
+.dark .text-slate-500,
+.dark .text-slate-400 {
+  color: #94a3b8 !important;
+}
+
+.dark .text-slate-455 {
+  color: #cbd5e1 !important;
+}
+
+/* Scrollbars sleek dark mode style */
+.dark ::-webkit-scrollbar-thumb {
+  background: #334155;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: #475569;
+}
+
+/* =======================================================
+   PRINT LAYOUT STYLING (A4/A5 Print Slips & Invoices)
+   ======================================================= */
+@media print {
+  /* Hide all elements on the page by default */
+  html, body, #root, #dashboard-module, #patients-visits-module, #reports-module, #suppliers-module, .fixed, .modal-backdrop, button, nav, aside {
+    visibility: hidden;
+    height: 0 !important;
+    overflow: hidden !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* Make only the printing target visible */
+  #printable-template-slip,
+  #printable-template-slip *,
+  #print-area,
+  #print-area * {
+    visibility: visible;
+  }
+
+  /* Full screen layout for the printed slip */
+  #printable-template-slip,
+  #print-area {
+    visibility: visible;
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 10mm !important;
+    border: none !important;
+    box-shadow: none !important;
+    background: white !important;
+    color: black !important;
+    font-size: 12pt !important;
+  }
+
+  /* Force white background and black text on all text inside printable template */
+  #printable-template-slip *,
+  #print-area * {
+    background: transparent !important;
+    color: black !important;
+  }
+
+  /* Page margins config */
+  @page {
+    size: auto;
+    margin: 15mm 10mm 15mm 10mm;
+  }
+}

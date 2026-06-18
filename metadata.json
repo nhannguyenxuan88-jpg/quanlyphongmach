@@ -1,0 +1,6 @@
+{
+  "name": "Quản lý Phòng mạch",
+  "description": "Hệ thống quản lý phòng mạch tư nhân, số hóa quy trình tiếp nhận, khám bệnh, kê đơn thuốc FEFO, thanh toán hóa đơn và quản lý kho dược.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
