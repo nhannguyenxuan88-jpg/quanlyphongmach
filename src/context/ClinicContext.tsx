@@ -4,13 +4,12 @@
  */
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
-import * as db from "../lib/db";
-import {
+import { useAuth } from "./AuthContext";
+import * as db from "../lib/supabaseDb";
+import type {
   User, Patient, Visit, Medicine, MedicineBatch, Invoice, Payment, StockLog,
   Supplier, Appointment, PurchaseInvoice, ClinicConfig, MedicalService
 } from "../types";
-import { DashboardStats } from "../lib/db";
-import { SYSTEM_DATE, getCurrentDateTimeStr } from "../lib/utils";
 
 interface ClinicContextType {
   // States
@@ -23,7 +22,7 @@ interface ClinicContextType {
   invoices: Invoice[];
   payments: Payment[];
   stockLogs: StockLog[];
-  dashboardStats: DashboardStats;
+  dashboardStats: db.DashboardStats;
   suppliers: Supplier[];
   appointments: Appointment[];
   purchases: PurchaseInvoice[];
@@ -32,25 +31,23 @@ interface ClinicContextType {
   darkMode: boolean;
   isLoading: boolean;
   
-  // Actions
-  changeUser: (user: User) => void;
-  resetDb: () => void;
-  registerPatient: (patient: Omit<Patient, "id" | "createdAt">) => Patient;
-  checkInVisit: (patientId: string, doctorId: string, symptoms: string) => Visit;
+  // Actions (all async now)
+  registerPatient: (patient: Omit<Patient, "id" | "createdAt">) => Promise<Patient>;
+  checkInVisit: (patientId: string, doctorId: string, symptoms: string) => Promise<Visit>;
   prescribeMedications: (
     visitId: string,
     diagnosis: string,
     notes: string,
     items: { medicineId: string; quantity: number; instruction: string }[],
     services?: string[]
-  ) => { visit: Visit; warningMsgs: string[] };
+  ) => Promise<{ visit: Visit; warningMsgs: string[] }>;
   receivePayment: (
     invoiceId: string,
     amountPaid: number,
     discount: number,
     paymentMethod: "Tiền mặt" | "Chuyển khoản" | "Thẻ GSK" | "QR VietQR"
-  ) => { invoice: Invoice; success: boolean; errMsg?: string };
-  registerMedicine: (medicine: Omit<Medicine, "id">) => Medicine;
+  ) => Promise<{ invoice: Invoice; success: boolean; errMsg?: string }>;
+  registerMedicine: (medicine: Omit<Medicine, "id">) => Promise<Medicine>;
   importMedicineBatch: (
     medicineId: string,
     batchNumber: string,
@@ -58,20 +55,51 @@ interface ClinicContextType {
     quantity: number,
     importPrice: number,
     retailPrice: number
-  ) => MedicineBatch;
-  settlePatientDebt: (invoiceId: string, amount: number) => void;
-  refreshData: () => void;
+  ) => Promise<MedicineBatch>;
+  settlePatientDebt: (invoiceId: string, amount: number) => Promise<void>;
+  refreshData: () => Promise<void>;
 
   // SaaS ERP Actions
-  saveSupplier: (supplier: Supplier) => void;
-  deleteSupplier: (id: string) => void;
-  saveAppointment: (appointment: Appointment) => void;
-  savePurchaseInvoice: (invoice: PurchaseInvoice) => void;
-  saveClinicConfig: (config: ClinicConfig) => void;
-  saveService: (service: MedicalService) => void;
+  saveSupplier: (supplier: Supplier) => Promise<void>;
+  deleteSupplier: (id: string) => Promise<void>;
+  saveAppointment: (appointment: Appointment) => Promise<void>;
+  savePurchaseInvoice: (invoice: PurchaseInvoice) => Promise<void>;
+  saveClinicConfig: (config: ClinicConfig) => Promise<void>;
+  saveService: (service: MedicalService) => Promise<void>;
   toggleDarkMode: () => void;
   triggerSkeleton: () => void;
 }
+
+const DEFAULT_STATS: db.DashboardStats = {
+  totalPatients: 0,
+  visitsToday: 0,
+  pendingVisits: 0,
+  revenueThisMonth: 0,
+  totalRevenue: 0,
+  totalProfit: 0,
+  lowStockItemsCount: 0,
+  nearExpiryItemsCount: 0,
+};
+
+const DEFAULT_CONFIG: ClinicConfig = {
+  name: "Clinic Cloud",
+  logo: "",
+  address: "",
+  phone: "",
+  email: "",
+  printSize: "A5",
+  enableSTT: true,
+  reminderTime: 120,
+  enableZaloReminder: true,
+};
+
+const DEFAULT_USER: User = {
+  id: "",
+  name: "Chưa đăng nhập",
+  role: "receptionist",
+  username: "",
+  status: "active",
+};
 
 const ClinicContext = createContext<ClinicContextType | undefined>(undefined);
 
@@ -84,7 +112,9 @@ export function useClinic() {
 }
 
 export function ClinicProvider({ children }: { children: React.ReactNode }) {
-  const [currentUser, setCurrentUser] = useState<User>(() => db.getCurrentUser());
+  const { user: authUser, clinicId } = useAuth();
+  
+  const [currentUser, setCurrentUser] = useState<User>(authUser || DEFAULT_USER);
   const [users, setUsers] = useState<User[]>([]);
   const [patients, setPatients] = useState<Patient[]>([]);
   const [visits, setVisits] = useState<Visit[]>([]);
@@ -93,44 +123,89 @@ export function ClinicProvider({ children }: { children: React.ReactNode }) {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [stockLogs, setStockLogs] = useState<StockLog[]>([]);
-  const [dashboardStats, setDashboardStats] = useState<DashboardStats>(() => db.getDashboardStats(SYSTEM_DATE));
+  const [dashboardStats, setDashboardStats] = useState<db.DashboardStats>(DEFAULT_STATS);
   
   // SaaS ERP States
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [purchases, setPurchases] = useState<PurchaseInvoice[]>([]);
   const [services, setServices] = useState<MedicalService[]>([]);
-  const [config, setConfig] = useState<ClinicConfig>(() => db.getClinicConfig());
+  const [config, setConfig] = useState<ClinicConfig>(DEFAULT_CONFIG);
   
   const [darkMode, setDarkMode] = useState<boolean>(() => {
     return localStorage.getItem("clinic_dark_mode") === "true";
   });
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
-  const refreshData = useCallback(() => {
-    setUsers(db.getUsers());
-    setPatients(db.getPatients());
-    setVisits(db.getVisits());
-    setMedicines(db.getMedicines());
-    setBatches(db.getBatches());
-    setInvoices(db.getInvoices());
-    setPayments(db.getPayments());
-    setStockLogs(db.getStockLogs());
-    setDashboardStats(db.getDashboardStats(SYSTEM_DATE));
-    
-    // SaaS ERP lists
-    setSuppliers(db.getSuppliers());
-    setAppointments(db.getAppointments());
-    setPurchases(db.getPurchaseInvoices());
-    setServices(db.getServices());
-    setConfig(db.getClinicConfig());
-  }, []);
-
-  // Sync state initially
+  // Sync current user from auth
   useEffect(() => {
-    db.initializeDB();
-    refreshData();
-  }, [refreshData]);
+    if (authUser) {
+      setCurrentUser(authUser);
+    }
+  }, [authUser]);
+
+  const refreshData = useCallback(async () => {
+    if (!clinicId) return;
+    
+    try {
+      const [
+        usersData,
+        patientsData,
+        visitsData,
+        medicinesData,
+        batchesData,
+        invoicesData,
+        paymentsData,
+        stockLogsData,
+        suppliersData,
+        appointmentsData,
+        purchasesData,
+        servicesData,
+        configData,
+        statsData,
+      ] = await Promise.all([
+        db.getUsers(clinicId),
+        db.getPatients(clinicId),
+        db.getVisits(clinicId),
+        db.getMedicines(clinicId),
+        db.getBatches(clinicId),
+        db.getInvoices(clinicId),
+        db.getPayments(clinicId),
+        db.getStockLogs(clinicId),
+        db.getSuppliers(clinicId),
+        db.getAppointments(clinicId),
+        db.getPurchaseInvoices(clinicId),
+        db.getServices(clinicId),
+        db.getClinicConfig(clinicId),
+        db.getDashboardStats(clinicId),
+      ]);
+
+      setUsers(usersData);
+      setPatients(patientsData);
+      setVisits(visitsData);
+      setMedicines(medicinesData);
+      setBatches(batchesData);
+      setInvoices(invoicesData);
+      setPayments(paymentsData);
+      setStockLogs(stockLogsData);
+      setSuppliers(suppliersData);
+      setAppointments(appointmentsData);
+      setPurchases(purchasesData);
+      setServices(servicesData);
+      setConfig(configData);
+      setDashboardStats(statsData);
+    } catch (err) {
+      console.error("Error refreshing data:", err);
+    }
+  }, [clinicId]);
+
+  // Load data when clinicId becomes available
+  useEffect(() => {
+    if (clinicId) {
+      setIsLoading(true);
+      refreshData().finally(() => setIsLoading(false));
+    }
+  }, [clinicId, refreshData]);
 
   // Apply dark class
   useEffect(() => {
@@ -143,96 +218,55 @@ export function ClinicProvider({ children }: { children: React.ReactNode }) {
   }, [darkMode]);
 
   // Actions
-  const changeUser = (user: User) => {
-    db.setCurrentUser(user);
-    setCurrentUser(user);
-    refreshData();
-  };
-
-  const resetDb = () => {
-    db.initializeDB(true);
-    setCurrentUser(db.getCurrentUser());
-    refreshData();
-  };
-
-  const registerPatient = (patientData: Omit<Patient, "id" | "createdAt">) => {
-    const newPatient: Patient = {
-      ...patientData,
-      id: "p-" + Math.random().toString(36).substring(2, 9),
-      createdAt: new Date().toISOString()
-    };
-    db.savePatient(newPatient);
-    refreshData();
+  const registerPatient = async (patientData: Omit<Patient, "id" | "createdAt">) => {
+    if (!clinicId) throw new Error("No clinic context");
+    const newPatient = await db.savePatient(clinicId, patientData);
+    await refreshData();
     return newPatient;
   };
 
-  const checkInVisit = (patientId: string, doctorId: string, symptoms: string) => {
-    const id = "v-" + Math.random().toString(36).substring(2, 9);
-    const dateStr = getCurrentDateTimeStr();
-    
-    const visit: Visit = {
-      id,
-      patientId,
-      doctorId,
-      status: "pending",
-      date: dateStr,
-      symptoms,
-      prescriptionItems: [],
-      services: [],
-    };
-    db.saveVisit(visit);
-
-    const invoice: Invoice = {
-      id: "inv-" + Math.random().toString(36).substring(2, 9),
-      visitId: id,
-      consultationFee: 100000,
-      drugSubtotal: 0,
-      serviceSubtotal: 0,
-      discount: 0,
-      totalAmount: 100000,
-      paidAmount: 0,
-      paymentStatus: "unpaid"
-    };
-    db.saveInvoice(invoice);
-
-    refreshData();
+  const checkInVisit = async (patientId: string, doctorId: string, symptoms: string) => {
+    if (!clinicId) throw new Error("No clinic context");
+    const visit = await db.createVisit(clinicId, patientId, doctorId, symptoms);
+    await refreshData();
     return visit;
   };
 
-  const prescribeMedications = (
+  const prescribeMedications = async (
     visitId: string,
     diagnosis: string,
     notes: string,
     items: { medicineId: string; quantity: number; instruction: string }[],
     servicesList?: string[]
   ) => {
-    const res = db.submitPrescription(visitId, diagnosis, notes, items, servicesList);
-    refreshData();
+    if (!clinicId) throw new Error("No clinic context");
+    const res = await db.submitPrescription(clinicId, visitId, diagnosis, notes, items, servicesList);
+    await refreshData();
     return res;
   };
 
-  const receivePayment = (
+  const receivePayment = async (
     invoiceId: string,
     amountPaid: number,
     discount: number,
     paymentMethod: "Tiền mặt" | "Chuyển khoản" | "Thẻ GSK" | "QR VietQR"
   ) => {
-    const res = db.processPayment(invoiceId, amountPaid, discount, paymentMethod as any, currentUser.id);
-    refreshData();
+    if (!clinicId) throw new Error("No clinic context");
+    const res = await db.processPayment(
+      clinicId, invoiceId, amountPaid, discount, paymentMethod, currentUser.id, currentUser.name
+    );
+    await refreshData();
     return res;
   };
 
-  const registerMedicine = (medicineData: Omit<Medicine, "id">) => {
-    const newMed: Medicine = {
-      ...medicineData,
-      id: "m-" + Math.random().toString(36).substring(2, 9)
-    };
-    db.saveMedicine(newMed);
-    refreshData();
+  const registerMedicine = async (medicineData: Omit<Medicine, "id">) => {
+    if (!clinicId) throw new Error("No clinic context");
+    const newMed = await db.saveMedicine(clinicId, medicineData);
+    await refreshData();
     return newMed;
   };
 
-  const importMedicineBatch = (
+  const importMedicineBatch = async (
     medicineId: string,
     batchNumber: string,
     expiryDate: string,
@@ -240,118 +274,55 @@ export function ClinicProvider({ children }: { children: React.ReactNode }) {
     importPrice: number,
     retailPrice: number
   ) => {
-    const res = db.addInventoryStock(
-      medicineId,
-      batchNumber,
-      expiryDate,
-      quantity,
-      importPrice,
-      retailPrice,
-      currentUser.id
+    if (!clinicId) throw new Error("No clinic context");
+    const res = await db.addInventoryStock(
+      clinicId, medicineId, batchNumber, expiryDate, quantity, importPrice, retailPrice, currentUser.name
     );
-    refreshData();
+    await refreshData();
     return res;
   };
 
-  const settlePatientDebt = (invoiceId: string, amount: number) => {
-    const currentInvoices = db.getInvoices();
-    const idx = currentInvoices.findIndex(inv => inv.id === invoiceId);
-    if (idx >= 0) {
-      const inv = currentInvoices[idx];
-      inv.paidAmount += amount;
-      inv.debt = Math.max(0, (inv.debt || 0) - amount);
-      
-      if (inv.debt === 0) {
-        inv.paymentStatus = "paid";
-      } else {
-        inv.paymentStatus = "partially_paid";
-      }
-      
-      localStorage.setItem("clinic_invoices", JSON.stringify(currentInvoices));
-
-      // Log Payment transaction
-      const now = new Date();
-      const hours = String(now.getHours()).padStart(2, "0");
-      const minutes = String(now.getMinutes()).padStart(2, "0");
-      const paymentRecord = {
-        id: "pay-" + Math.random().toString(36).substring(2, 9),
-        invoiceId: inv.id,
-        amount: amount,
-        date: `${SYSTEM_DATE} ${hours}:${minutes}`,
-        method: "Tiền mặt" as any,
-        cashierId: currentUser.id
-      };
-      
-      const currentPayments = db.getPayments();
-      currentPayments.unshift(paymentRecord);
-      localStorage.setItem("clinic_payments", JSON.stringify(currentPayments));
-      
-      refreshData();
-    }
+  const settlePatientDebt = async (invoiceId: string, amount: number) => {
+    if (!clinicId) throw new Error("No clinic context");
+    await db.settlePatientDebt(clinicId, invoiceId, amount, currentUser.id);
+    await refreshData();
   };
 
-  // SaaS ERP actions implementation
-  const saveSupplier = (supplier: Supplier) => {
-    db.saveSupplier(supplier);
-    refreshData();
+  // SaaS ERP actions
+  const saveSupplierAction = async (supplier: Supplier) => {
+    if (!clinicId) return;
+    await db.saveSupplier(clinicId, supplier);
+    await refreshData();
   };
 
-  const deleteSupplier = (id: string) => {
-    db.deleteSupplier(id);
-    refreshData();
+  const deleteSupplierAction = async (id: string) => {
+    await db.deleteSupplier(id);
+    await refreshData();
   };
 
-  const saveAppointment = (appointment: Appointment) => {
-    db.saveAppointment(appointment);
-    refreshData();
+  const saveAppointmentAction = async (appointment: Appointment) => {
+    if (!clinicId) return;
+    await db.saveAppointment(clinicId, appointment);
+    await refreshData();
   };
 
-  const savePurchaseInvoice = (invoice: PurchaseInvoice) => {
-    db.savePurchaseInvoice(invoice);
-    
-    // Extemely critical: Auto-create medication batches and log imports!
-    const now = new Date();
-    const batchesData = db.getBatches();
-    const medicinesData = db.getMedicines();
-    
-    invoice.items.forEach(item => {
-      // Find matching medicine unit/details to decide retail price (markup of 40% if not found or new batch)
-      const med = medicinesData.find(m => m.id === item.medicineId);
-      if (med) {
-        // Look up previous batches to find typical retailPrice
-        const prevBatch = batchesData.find(b => b.medicineId === item.medicineId);
-        const retailPrice = prevBatch ? prevBatch.retailPrice : Math.round(item.importPrice * 1.4);
-        
-        // Auto-allocate a new batch number
-        const batchNum = "PI-" + invoice.id.substring(3).toUpperCase() + "-" + Math.random().toString(36).substring(2, 5).toUpperCase();
-        const expiryDate = new Date(SYSTEM_DATE);
-        expiryDate.setFullYear(expiryDate.getFullYear() + 2); // default 2 years expiry
-        const formattedExpiry = expiryDate.toISOString().split("T")[0];
-        
-        db.addInventoryStock(
-          item.medicineId,
-          batchNum,
-          formattedExpiry,
-          item.quantity,
-          item.importPrice,
-          retailPrice,
-          currentUser.id
-        );
-      }
-    });
-
-    refreshData();
+  const savePurchaseInvoiceAction = async (invoice: PurchaseInvoice) => {
+    if (!clinicId) return;
+    await db.savePurchaseInvoice(clinicId, invoice, currentUser.name);
+    await refreshData();
   };
 
-  const saveClinicConfig = (newConfig: ClinicConfig) => {
-    db.saveClinicConfig(newConfig);
+  const saveClinicConfigAction = async (newConfig: ClinicConfig) => {
+    if (!clinicId) return;
+    await db.saveClinicConfig(clinicId, newConfig);
     setConfig(newConfig);
-    refreshData();
+    await refreshData();
   };
 
-  const saveService = (service: MedicalService) => {
-    db.saveService(service);
-    refreshData();
+  const saveServiceAction = async (service: MedicalService) => {
+    if (!clinicId) return;
+    await db.saveService(clinicId, service);
+    await refreshData();
   };
 
   const toggleDarkMode = () => {
@@ -362,7 +333,7 @@ export function ClinicProvider({ children }: { children: React.ReactNode }) {
     setIsLoading(true);
     setTimeout(() => {
       setIsLoading(false);
-    }, 400); // 400ms loading transition
+    }, 400);
   }, []);
 
   return (
@@ -385,8 +356,6 @@ export function ClinicProvider({ children }: { children: React.ReactNode }) {
         config,
         darkMode,
         isLoading,
-        changeUser,
-        resetDb,
         registerPatient,
         checkInVisit,
         prescribeMedications,
@@ -395,14 +364,14 @@ export function ClinicProvider({ children }: { children: React.ReactNode }) {
         importMedicineBatch,
         settlePatientDebt,
         refreshData,
-        saveSupplier,
-        deleteSupplier,
-        saveAppointment,
-        savePurchaseInvoice,
-        saveClinicConfig,
-        saveService,
+        saveSupplier: saveSupplierAction,
+        deleteSupplier: deleteSupplierAction,
+        saveAppointment: saveAppointmentAction,
+        savePurchaseInvoice: savePurchaseInvoiceAction,
+        saveClinicConfig: saveClinicConfigAction,
+        saveService: saveServiceAction,
         toggleDarkMode,
-        triggerSkeleton
+        triggerSkeleton,
       }}
     >
       {children}

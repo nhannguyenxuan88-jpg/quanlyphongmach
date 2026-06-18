@@ -18,7 +18,6 @@ import {
   ChevronLeft,
   Sun,
   Moon,
-  Database,
   Monitor
 } from "lucide-react";
 
@@ -29,7 +28,6 @@ interface SidebarProps {
   setIsCollapsed: (collapsed: boolean) => void;
   mobileOpen: boolean;
   setMobileOpen: (open: boolean) => void;
-  onResetDb: () => void;
 }
 
 export default function Sidebar({
@@ -39,7 +37,6 @@ export default function Sidebar({
   setIsCollapsed,
   mobileOpen,
   setMobileOpen,
-  onResetDb
 }: SidebarProps) {
   const { currentUser, darkMode, toggleDarkMode, triggerSkeleton } = useClinic();
 
@@ -210,17 +207,7 @@ export default function Sidebar({
             )}
           </button>
 
-          {/* Database Reset Option */}
-          <button
-            onClick={onResetDb}
-            className={`w-full flex items-center justify-center rounded-2xl border border-rose-100 hover:border-rose-200 hover:bg-rose-50/50 dark:border-rose-950/20 dark:hover:bg-rose-950/10 p-2.5 text-xs font-bold text-slate-400 hover:text-rose-600 transition-all cursor-pointer ${
-              isCollapsed ? "px-0" : "gap-3"
-            }`}
-            title="Khôi phục lại dữ liệu mẫu gốc"
-          >
-            <Database className="h-4.5 w-4.5 text-rose-500" />
-            {(!isCollapsed || mobileOpen) && <span>Khởi tạo dữ liệu</span>}
-          </button>
+
 
           {/* Current User Quick Info */}
           {(!isCollapsed || mobileOpen) ? (

@@ -5,7 +5,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useClinic } from "../../context/ClinicContext";
-import { projectFEFOAllocation } from "../../lib/db";
+import { projectFEFOAllocation } from "../../lib/utils";
 import { useToast } from "../common/Toast";
 import Modal from "../common/Modal";
 import { AlertTriangle, Plus, Trash2, HeartPulse, User } from "lucide-react";
@@ -24,7 +24,7 @@ export default function PrescriptionWorkspace({
   visit,
   patient
 }: PrescriptionWorkspaceProps) {
-  const { medicines, services, prescribeMedications } = useClinic();
+  const { medicines, services, prescribeMedications, batches } = useClinic();
   const { toast } = useToast();
 
   // Consultation States
@@ -86,7 +86,7 @@ export default function PrescriptionWorkspace({
       }
 
       // 2. FEFO Stock Check
-      const allocation = projectFEFOAllocation(item.medicineId, item.quantity);
+      const allocation = projectFEFOAllocation(batches, item.medicineId, item.quantity);
       if (!allocation.satisfied) {
         warnings.push(
           `⚠️ Cảnh báo tồn kho: Thuốc "${med.name}" hiện không đủ lô hàng khả dụng (còn thiếu ${allocation.unmetQty} ${med.unit}).`
@@ -347,7 +347,7 @@ export default function PrescriptionWorkspace({
                     ) : (
                       prescribedItems.map((item, idx) => {
                         const med = medicines.find((m) => m.id === item.medicineId);
-                        const allocation = projectFEFOAllocation(item.medicineId, item.quantity);
+                        const allocation = projectFEFOAllocation(batches, item.medicineId, item.quantity);
                         return (
                           <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
                             <td className="p-3 text-center text-slate-400">{idx + 1}</td>
