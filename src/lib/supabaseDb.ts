@@ -114,6 +114,26 @@ export async function updatePatient(patient: Patient): Promise<Patient> {
   return mapPatientRow(data);
 }
 
+export async function deletePatient(id: string): Promise<void> {
+  // Nullify patient reference in appointments to avoid foreign key reference errors
+  const { error: apptError } = await supabase
+    .from('appointments')
+    .update({ patient_id: null })
+    .eq('patient_id', id);
+  
+  if (apptError) {
+    console.error("Lỗi khi gỡ liên kết lịch hẹn của bệnh nhân:", apptError);
+    throw apptError;
+  }
+  
+  // Delete the patient record
+  const { error } = await supabase.from('patients').delete().eq('id', id);
+  if (error) {
+    console.error("Lỗi khi xóa bệnh nhân trong database:", error);
+    throw error;
+  }
+}
+
 // ============================================================================
 // MEDICINES
 // ============================================================================
@@ -959,6 +979,68 @@ export async function checkTrialStatus(clinicId: string): Promise<TrialStatus> {
     return { active: false, reason: 'error', days_remaining: 0, message: 'Lỗi kiểm tra trạng thái.' };
   }
   return data as TrialStatus;
+}
+
+export async function registerNewClinic(
+  clinicName: string,
+  email: string,
+  password: string,
+  fullName: string
+): Promise<{ success: boolean; message: string; clinic_id?: string; user_id?: string }> {
+  const { data, error } = await supabase.rpc('admin_register_new_clinic', {
+    p_clinic_name: clinicName,
+    p_email: email,
+    p_password: password,
+    p_full_name: fullName,
+  });
+  if (error) throw error;
+  return data as { success: boolean; message: string; clinic_id?: string; user_id?: string };
+}
+
+// ============================================================================
+// STAFF MANAGEMENT (RPC WRAPPERS)
+// ============================================================================
+export async function createStaffMember(
+  clinicId: string,
+  email: string,
+  password: string,
+  fullName: string,
+  role: string
+): Promise<string> {
+  const { data, error } = await supabase.rpc('admin_create_staff_member', {
+    p_email: email,
+    p_password: password,
+    p_full_name: fullName,
+    p_role: role,
+    p_clinic_id: clinicId,
+  });
+  if (error) throw error;
+  return data as string;
+}
+
+export async function resetStaffPassword(userId: string, newPassword: string): Promise<boolean> {
+  const { data, error } = await supabase.rpc('admin_reset_staff_password', {
+    p_user_id: userId,
+    p_new_password: newPassword,
+  });
+  if (error) throw error;
+  return data as boolean;
+}
+
+export async function updateStaffMember(
+  userId: string,
+  payload: { name?: string; role?: string; status?: 'active' | 'inactive' }
+): Promise<void> {
+  const updateData: any = {};
+  if (payload.name !== undefined) updateData.full_name = payload.name;
+  if (payload.role !== undefined) updateData.role = payload.role;
+  if (payload.status !== undefined) updateData.status = payload.status;
+
+  const { error } = await supabase
+    .from('users')
+    .update(updateData)
+    .eq('id', userId);
+  if (error) throw error;
 }
 
 // ============================================================================

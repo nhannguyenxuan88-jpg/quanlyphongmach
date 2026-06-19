@@ -51,7 +51,7 @@ export default function Sidebar({
       title: "Lâm sàng & Tiếp đón",
       items: [
         { id: "appointments", label: "Lịch Hẹn Phòng Khám", icon: Calendar, roles: ["receptionist", "doctor", "manager"] },
-        { id: "clinic", label: "Khám Lâm Sàng", icon: Stethoscope, roles: ["doctor", "receptionist", "manager"] },
+        { id: "clinic", label: "Tiếp Đón & Bệnh Nhân", icon: Stethoscope, roles: ["doctor", "receptionist", "manager"] },
         { id: "lobby", label: "Tivi Sảnh Chờ", icon: Monitor, roles: ["receptionist", "doctor", "manager"] }
       ]
     },

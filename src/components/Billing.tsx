@@ -300,10 +300,10 @@ export default function Billing({ currentUser, onActionTrigger }: BillingProps) 
                     Quét Mã VietQR Chuyển Khoản Nhanh
                   </div>
                   <img
-                    src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(
-                      `STB_MBBANK_113366668888_Amount_${finalTotal}_Ref_${checkoutInvoice.id}`
-                    )}`}
-                    alt="VietQR Mockup"
+                    src={`https://img.vietqr.io/image/MB-113366668888-compact.png?amount=${finalTotal}&addInfo=${encodeURIComponent(
+                      `HD ${checkoutInvoice.id.substring(0, 8).toUpperCase()}`
+                    )}&accountName=${encodeURIComponent("PHONG KHAM CLINIC CLOUD")}`}
+                    alt="VietQR QR Code"
                     className="w-36 h-36 border-2 border-white rounded-xl shadow-md bg-white p-1"
                   />
                   <div className="text-[10px] font-bold text-slate-500 dark:text-slate-400 leading-normal">

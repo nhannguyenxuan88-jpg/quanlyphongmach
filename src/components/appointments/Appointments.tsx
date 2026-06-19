@@ -171,35 +171,46 @@ export default function Appointments() {
     toast("Đã đánh dấu hoàn thành cuộc hẹn!", "success");
   };
 
-  const handleCheckInVisit = (ap: Appointment) => {
+  const handleCheckInVisit = async (ap: Appointment) => {
     // 1. Verify if patient exists
     let existingPatient = patients.find(p => p.phone.trim() === ap.phone.trim());
     
     if (!existingPatient) {
-      // Register them
-      existingPatient = registerPatient({
-        fullName: ap.patientName,
-        phone: ap.phone,
-        gender: "Khác",
-        dob: "1990-01-01",
-        address: "Đăng ký từ lịch hẹn",
-        medicalHistory: "Chưa có",
-        drugAllergies: "Không có dị ứng thuốc"
-      });
-      toast(`Tự động đăng ký bệnh nhân mới: ${ap.patientName}`, "info");
+      try {
+        // Register them
+        existingPatient = await registerPatient({
+          fullName: ap.patientName,
+          phone: ap.phone,
+          gender: "Khác",
+          dob: "1990-01-01",
+          address: "Đăng ký từ lịch hẹn",
+          medicalHistory: "Chưa có",
+          drugAllergies: "Không có dị ứng thuốc"
+        });
+        toast(`Tự động đăng ký bệnh nhân mới: ${ap.patientName}`, "info");
+      } catch (error) {
+        console.error(error);
+        toast("Tự động đăng ký bệnh nhân thất bại!", "error");
+        return;
+      }
     }
 
     // 2. Select first doctor as default or receptionist configures
     const defaultDoctorId = doctorsList[0]?.id || "u-doctor-1";
 
-    // 3. Create visit
-    const visit = checkInVisit(existingPatient.id, defaultDoctorId, ap.symptoms || "Khám bệnh theo lịch hẹn");
-    
-    // 4. Mark appointment as completed
-    saveAppointment({ ...ap, status: "đã khám" });
-    
-    setDetailModalOpen(false);
-    toast(`Đã tiếp đón bệnh nhân "${ap.patientName}" vào hàng chờ lâm sàng!`, "success");
+    try {
+      // 3. Create visit
+      const visit = await checkInVisit(existingPatient.id, defaultDoctorId, ap.symptoms || "Khám bệnh theo lịch hẹn");
+      
+      // 4. Mark appointment as completed
+      await saveAppointment({ ...ap, status: "đã khám" });
+      
+      setDetailModalOpen(false);
+      toast(`Đã tiếp đón bệnh nhân "${ap.patientName}" vào hàng chờ lâm sàng!`, "success");
+    } catch (error) {
+      console.error(error);
+      toast("Tiếp đón bệnh nhân thất bại!", "error");
+    }
   };
 
   const handleCreateAppointment = (e: React.FormEvent) => {

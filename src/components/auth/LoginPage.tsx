@@ -1,5 +1,6 @@
 /**
  * LoginPage - Premium authentication screen for Clinic Cloud SaaS
+ * Supports both system login and self-service 30-day trial registration.
  */
 
 import React, { useState } from 'react';
@@ -8,25 +9,77 @@ import { ShieldCheck, Eye, EyeOff, Loader2, Stethoscope } from 'lucide-react';
 
 export default function LoginPage() {
   const { signIn, isAuthLoading } = useAuth();
+  
+  // Toggle registration state
+  const [isRegistering, setIsRegistering] = useState(false);
+  
+  // Shared Form State
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Registration Specific Form State
+  const [clinicName, setClinicName] = useState('');
+  const [fullName, setFullName] = useState('');
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email.trim() || !password.trim()) {
-      setError('Vui lòng nhập đầy đủ email và mật khẩu.');
-      return;
-    }
     setError(null);
-    setIsSubmitting(true);
-    const result = await signIn(email.trim(), password);
-    if (result.error) {
-      setError(result.error);
+
+    if (isRegistering) {
+      // Validation for registration
+      if (!clinicName.trim() || !fullName.trim() || !email.trim() || !password.trim()) {
+        setError('Vui lòng nhập đầy đủ thông tin đăng ký.');
+        return;
+      }
+      if (password.length < 6) {
+        setError('Mật khẩu đăng ký phải có ít nhất 6 ký tự.');
+        return;
+      }
+
+      setIsSubmitting(true);
+      try {
+        const { registerNewClinic } = await import('../../lib/supabaseDb');
+        const res = await registerNewClinic(
+          clinicName.trim(), 
+          email.trim(), 
+          password, 
+          fullName.trim()
+        );
+
+        if (!res.success) {
+          setError(res.message);
+          setIsSubmitting(false);
+          return;
+        }
+        
+        // Auto sign-in on success
+        const signInResult = await signIn(email.trim(), password);
+        if (signInResult.error) {
+          setError('Đăng ký thành công nhưng đăng nhập tự động thất bại: ' + signInResult.error);
+        }
+      } catch (err: any) {
+        console.error(err);
+        setError(err.message || 'Đã xảy ra lỗi trong quá trình đăng ký dùng thử.');
+      } finally {
+        setIsSubmitting(false);
+      }
+    } else {
+      // Validation for login
+      if (!email.trim() || !password.trim()) {
+        setError('Vui lòng nhập đầy đủ email và mật khẩu.');
+        return;
+      }
+
+      setIsSubmitting(true);
+      const result = await signIn(email.trim(), password);
+      if (result.error) {
+        setError(result.error);
+      }
+      setIsSubmitting(false);
     }
-    setIsSubmitting(false);
   };
 
   if (isAuthLoading) {
@@ -57,32 +110,70 @@ export default function LoginPage() {
         />
       </div>
 
-      <div className="relative z-10 w-full max-w-md px-6">
+      <div className="relative z-10 w-full max-w-md px-6 my-8">
         {/* Logo & branding */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-20 h-20 rounded-3xl bg-gradient-to-br from-blue-500 to-indigo-600 shadow-2xl shadow-blue-500/30 mb-5">
-            <Stethoscope className="w-10 h-10 text-white" />
+        <div className="text-center mb-6">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-3xl bg-gradient-to-br from-blue-500 to-indigo-600 shadow-2xl shadow-blue-500/30 mb-4 animate-bounce duration-1000">
+            <Stethoscope className="w-8 h-8 text-white" />
           </div>
           <h1 className="text-3xl font-black text-white tracking-tight">
             Clinic Cloud
           </h1>
-          <p className="text-blue-300/80 text-sm mt-2 font-medium">
+          <p className="text-blue-300/80 text-xs mt-1 font-medium uppercase tracking-wider">
             Hệ thống quản lý phòng khám SaaS
           </p>
         </div>
 
-        {/* Login card */}
+        {/* Auth card */}
         <div className="bg-white/[0.07] backdrop-blur-xl border border-white/10 rounded-3xl p-8 shadow-2xl">
-          <div className="flex items-center gap-2 mb-6">
+          <div className="flex items-center gap-2 mb-6 text-left">
             <ShieldCheck className="w-5 h-5 text-blue-400" />
-            <h2 className="text-lg font-bold text-white">Đăng nhập</h2>
+            <h2 className="text-lg font-bold text-white">
+              {isRegistering ? "Đăng ký dùng thử 30 ngày" : "Đăng nhập hệ thống"}
+            </h2>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-5">
+          <form onSubmit={handleSubmit} className="space-y-4 text-left">
+            {isRegistering && (
+              <>
+                {/* Clinic Name */}
+                <div>
+                  <label className="block text-xs font-semibold text-blue-200/80 mb-2 uppercase tracking-wider">
+                    Tên phòng khám *
+                  </label>
+                  <input
+                    type="text"
+                    value={clinicName}
+                    onChange={(e) => setClinicName(e.target.value)}
+                    placeholder="Ví dụ: Phòng Khám Đa Khoa An Bình"
+                    className="w-full px-4 py-3 bg-white/[0.06] border border-white/10 rounded-2xl text-white placeholder-white/30 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all font-bold"
+                    disabled={isSubmitting}
+                    required
+                  />
+                </div>
+
+                {/* Manager Name */}
+                <div>
+                  <label className="block text-xs font-semibold text-blue-200/80 mb-2 uppercase tracking-wider">
+                    Họ & tên Quản lý (Chủ phòng khám) *
+                  </label>
+                  <input
+                    type="text"
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    placeholder="Ví dụ: BS. Nguyễn Văn A"
+                    className="w-full px-4 py-3 bg-white/[0.06] border border-white/10 rounded-2xl text-white placeholder-white/30 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all font-bold"
+                    disabled={isSubmitting}
+                    required
+                  />
+                </div>
+              </>
+            )}
+
             {/* Email */}
             <div>
               <label className="block text-xs font-semibold text-blue-200/80 mb-2 uppercase tracking-wider">
-                Email
+                Email đăng nhập *
               </label>
               <input
                 id="login-email"
@@ -90,17 +181,17 @@ export default function LoginPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="ten@phongkham.vn"
-                className="w-full px-4 py-3 bg-white/[0.06] border border-white/10 rounded-2xl text-white placeholder-white/30 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all"
+                className="w-full px-4 py-3 bg-white/[0.06] border border-white/10 rounded-2xl text-white placeholder-white/30 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all font-semibold"
                 disabled={isSubmitting}
                 autoComplete="email"
-                autoFocus
+                required
               />
             </div>
 
             {/* Password */}
             <div>
               <label className="block text-xs font-semibold text-blue-200/80 mb-2 uppercase tracking-wider">
-                Mật khẩu
+                Mật khẩu *
               </label>
               <div className="relative">
                 <input
@@ -112,10 +203,13 @@ export default function LoginPage() {
                   className="w-full px-4 py-3 pr-12 bg-white/[0.06] border border-white/10 rounded-2xl text-white placeholder-white/30 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all"
                   disabled={isSubmitting}
                   autoComplete="current-password"
+                  required
                 />
                 <button
                   type="button"
-                  onClick={() => setShowPassword(!showPassword)}
+                  onClick={() => {
+                    setShowPassword(!showPassword);
+                  }}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white/70 transition-colors"
                   tabIndex={-1}
                 >
@@ -131,7 +225,7 @@ export default function LoginPage() {
               </div>
             )}
 
-            {/* Submit */}
+            {/* Submit Button */}
             <button
               id="login-submit"
               type="submit"
@@ -141,39 +235,51 @@ export default function LoginPage() {
               {isSubmitting ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  Đang xác thực...
+                  {isRegistering ? 'Đang kích hoạt...' : 'Đang xác thực...'}
                 </>
               ) : (
-                'Đăng nhập hệ thống'
+                isRegistering ? 'Đăng ký & Dùng thử ngay' : 'Đăng nhập hệ thống'
               )}
             </button>
           </form>
 
-          {/* Forgot password */}
-          <div className="mt-5 text-center">
+          {/* Toggle panel links */}
+          <div className="mt-6 flex flex-col items-center gap-3 border-t border-white/5 pt-4">
             <button
-              onClick={async () => {
-                if (!email.trim()) {
-                  setError('Vui lòng nhập email trước khi yêu cầu khôi phục mật khẩu.');
-                  return;
-                }
-                const { error: resetErr } = await (await import('../../lib/supabase')).supabase.auth.resetPasswordForEmail(email.trim());
-                if (resetErr) {
-                  setError('Lỗi gửi email khôi phục: ' + resetErr.message);
-                } else {
-                  setError(null);
-                  alert('Đã gửi email khôi phục mật khẩu. Vui lòng kiểm tra hộp thư.');
-                }
+              onClick={() => {
+                setIsRegistering(!isRegistering);
+                setError(null);
               }}
-              className="text-xs text-blue-400/70 hover:text-blue-300 transition-colors font-medium cursor-pointer"
+              className="text-xs text-blue-400 hover:text-blue-300 transition-colors font-semibold cursor-pointer"
             >
-              Quên mật khẩu?
+              {isRegistering ? "Đã có phòng khám? Đăng nhập" : "Chưa có tài khoản? Đăng ký dùng thử miễn phí"}
             </button>
+
+            {!isRegistering && (
+              <button
+                onClick={async () => {
+                  if (!email.trim()) {
+                    setError('Vui lòng nhập email trước khi yêu cầu khôi phục mật khẩu.');
+                    return;
+                  }
+                  const { error: resetErr } = await (await import('../../lib/supabase')).supabase.auth.resetPasswordForEmail(email.trim());
+                  if (resetErr) {
+                    setError('Lỗi gửi email khôi phục: ' + resetErr.message);
+                  } else {
+                    setError(null);
+                    alert('Đã gửi email khôi phục mật khẩu. Vui lòng kiểm tra hộp thư.');
+                  }
+                }}
+                className="text-xs text-blue-400/50 hover:text-blue-300/80 transition-colors font-medium cursor-pointer"
+              >
+                Quên mật khẩu?
+              </button>
+            )}
           </div>
         </div>
 
         {/* Footer */}
-        <p className="text-center text-white/20 text-xs mt-8 font-medium">
+        <p className="text-center text-white/20 text-xs mt-6 font-medium">
           © 2026 Clinic Cloud SaaS · Phần mềm quản lý phòng khám
         </p>
       </div>

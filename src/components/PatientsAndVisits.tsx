@@ -73,27 +73,32 @@ export default function PatientsAndVisits({ currentUser, onActionTrigger }: Pati
   };
 
   // Submit patient registration
-  const handleAddPatientSubmit = (e: React.FormEvent) => {
+  const handleAddPatientSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newPatientName.trim() || !newPatientPhone.trim()) {
       toast("Vui lòng nhập họ tên và số điện thoại bệnh nhân!", "warning");
       return;
     }
 
-    const newPat = registerPatient({
-      fullName: newPatientName.trim(),
-      phone: newPatientPhone.trim(),
-      gender: newPatientGender,
-      dob: newPatientDOB,
-      address: newPatientAddress.trim(),
-      medicalHistory: newPatientHistory.trim() || "Không có tiền sử bệnh án đặc biệt",
-      drugAllergies: newPatientAllergies.trim() || "Không có dị ứng thuốc"
-    });
+    try {
+      const newPat = await registerPatient({
+        fullName: newPatientName.trim(),
+        phone: newPatientPhone.trim(),
+        gender: newPatientGender,
+        dob: newPatientDOB,
+        address: newPatientAddress.trim(),
+        medicalHistory: newPatientHistory.trim() || "Không có tiền sử bệnh án đặc biệt",
+        drugAllergies: newPatientAllergies.trim() || "Không có dị ứng thuốc"
+      });
 
-    setSelectedPatient(newPat);
-    setShowAddPatientModal(false);
-    toast(`Đã đăng ký hồ sơ bệnh nhân "${newPat.fullName}" thành công!`, "success");
-    if (onActionTrigger) onActionTrigger();
+      setSelectedPatient(newPat);
+      setShowAddPatientModal(false);
+      toast(`Đã đăng ký hồ sơ bệnh nhân "${newPat.fullName}" thành công!`, "success");
+      if (onActionTrigger) onActionTrigger();
+    } catch (error) {
+      console.error(error);
+      toast("Đăng ký hồ sơ bệnh nhân thất bại!", "error");
+    }
   };
 
   // Open check-in modal
@@ -106,7 +111,7 @@ export default function PatientsAndVisits({ currentUser, onActionTrigger }: Pati
   };
 
   // Submit check-in
-  const handleCheckInSubmit = (e: React.FormEvent) => {
+  const handleCheckInSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedPatient) return;
     if (!checkInDoctorId) {
@@ -114,15 +119,20 @@ export default function PatientsAndVisits({ currentUser, onActionTrigger }: Pati
       return;
     }
 
-    const visit = checkInVisit(
-      selectedPatient.id,
-      checkInDoctorId,
-      checkInSymptoms.trim() || "Khám sức khỏe tổng quát"
-    );
+    try {
+      const visit = await checkInVisit(
+        selectedPatient.id,
+        checkInDoctorId,
+        checkInSymptoms.trim() || "Khám sức khỏe tổng quát"
+      );
 
-    setShowCheckInModal(false);
-    toast(`Xếp số thành công ca khám "${visit.id}" cho bệnh nhân ${selectedPatient.fullName}!`, "success");
-    if (onActionTrigger) onActionTrigger();
+      setShowCheckInModal(false);
+      toast(`Xếp số thành công ca khám "${visit.id}" cho bệnh nhân ${selectedPatient.fullName}!`, "success");
+      if (onActionTrigger) onActionTrigger();
+    } catch (error) {
+      console.error(error);
+      toast("Xếp số khám bệnh thất bại!", "error");
+    }
   };
 
   // Open consultation prescription workspace

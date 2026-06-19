@@ -33,6 +33,7 @@ interface ClinicContextType {
   
   // Actions (all async now)
   registerPatient: (patient: Omit<Patient, "id" | "createdAt">) => Promise<Patient>;
+  deletePatient: (id: string) => Promise<void>;
   checkInVisit: (patientId: string, doctorId: string, symptoms: string) => Promise<Visit>;
   prescribeMedications: (
     visitId: string,
@@ -68,6 +69,9 @@ interface ClinicContextType {
   saveService: (service: MedicalService) => Promise<void>;
   toggleDarkMode: () => void;
   triggerSkeleton: () => void;
+  createStaffMember: (email: string, password: string, fullName: string, role: User["role"]) => Promise<string>;
+  resetStaffPassword: (userId: string, newPassword: string) => Promise<boolean>;
+  updateStaffMember: (userId: string, payload: { name?: string; role?: User["role"]; status?: User["status"] }) => Promise<void>;
 }
 
 const DEFAULT_STATS: db.DashboardStats = {
@@ -225,6 +229,11 @@ export function ClinicProvider({ children }: { children: React.ReactNode }) {
     return newPatient;
   };
 
+  const deletePatient = async (id: string) => {
+    await db.deletePatient(id);
+    await refreshData();
+  };
+
   const checkInVisit = async (patientId: string, doctorId: string, symptoms: string) => {
     if (!clinicId) throw new Error("No clinic context");
     const visit = await db.createVisit(clinicId, patientId, doctorId, symptoms);
@@ -325,6 +334,23 @@ export function ClinicProvider({ children }: { children: React.ReactNode }) {
     await refreshData();
   };
 
+  const createStaffMemberAction = async (email: string, password: string, fullName: string, role: User["role"]) => {
+    if (!clinicId) throw new Error("No clinic context");
+    const newId = await db.createStaffMember(clinicId, email, password, fullName, role);
+    await refreshData();
+    return newId;
+  };
+
+  const resetStaffPasswordAction = async (userId: string, newPassword: string) => {
+    const success = await db.resetStaffPassword(userId, newPassword);
+    return success;
+  };
+
+  const updateStaffMemberAction = async (userId: string, payload: { name?: string; role?: User["role"]; status?: User["status"] }) => {
+    await db.updateStaffMember(userId, payload);
+    await refreshData();
+  };
+
   const toggleDarkMode = () => {
     setDarkMode(prev => !prev);
   };
@@ -357,6 +383,7 @@ export function ClinicProvider({ children }: { children: React.ReactNode }) {
         darkMode,
         isLoading,
         registerPatient,
+        deletePatient,
         checkInVisit,
         prescribeMedications,
         receivePayment,
@@ -372,6 +399,9 @@ export function ClinicProvider({ children }: { children: React.ReactNode }) {
         saveService: saveServiceAction,
         toggleDarkMode,
         triggerSkeleton,
+        createStaffMember: createStaffMemberAction,
+        resetStaffPassword: resetStaffPasswordAction,
+        updateStaffMember: updateStaffMemberAction,
       }}
     >
       {children}

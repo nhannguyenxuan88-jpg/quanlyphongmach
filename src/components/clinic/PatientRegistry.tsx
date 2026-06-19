@@ -5,9 +5,10 @@
 
 import React, { useState } from "react";
 import { useClinic } from "../../context/ClinicContext";
-import { Search, UserPlus, FolderHeart, AlertTriangle, ChevronRight, Users, Stethoscope } from "lucide-react";
+import { Search, UserPlus, FolderHeart, AlertTriangle, ChevronRight, Users, Stethoscope, Trash2 } from "lucide-react";
 import { Patient } from "../../types";
 import { calculateAge, formatDate } from "../../lib/utils";
+import { useToast } from "../common/Toast";
 
 interface PatientRegistryProps {
   selectedPatient: Patient | null;
@@ -22,7 +23,26 @@ export default function PatientRegistry({
   onAddPatientClick,
   onCheckInClick
 }: PatientRegistryProps) {
-  const { patients, visits, medicines, currentUser } = useClinic();
+  const { patients, visits, medicines, currentUser, deletePatient } = useClinic();
+  const { toast } = useToast();
+  
+  const handleDeletePatient = async () => {
+    if (!selectedPatient) return;
+    const confirmDelete = window.confirm(
+      `Bạn có chắc chắn muốn xóa hồ sơ bệnh nhân "${selectedPatient.fullName}" không? Hành động này sẽ xóa vĩnh viễn toàn bộ bệnh án và hóa đơn liên quan!`
+    );
+    if (!confirmDelete) return;
+
+    try {
+      await deletePatient(selectedPatient.id);
+      toast(`Đã xóa hồ sơ bệnh nhân "${selectedPatient.fullName}" thành công!`, "success");
+      setSelectedPatient(null);
+    } catch (error: any) {
+      console.error(error);
+      toast(`Xóa hồ sơ bệnh nhân thất bại: ${error.message || JSON.stringify(error)}`, "error");
+    }
+  };
+
   const [searchQuery, setSearchQuery] = useState("");
   const [genderFilter, setGenderFilter] = useState("all");
   const [ageFilter, setAgeFilter] = useState("all");
@@ -186,8 +206,17 @@ export default function PatientRegistry({
         <div className="mt-2 p-4 bg-slate-50/50 rounded-2xl border border-slate-150/80 text-left">
           <h3 className="text-xs sm:text-sm font-extrabold text-slate-900 border-b border-slate-200/80 pb-2 flex justify-between items-center">
             Chi tiết: {selectedPatient.fullName}
-            <span className="text-[10px] bg-indigo-50 border border-indigo-150 text-indigo-700 px-2 py-0.5 rounded-lg font-mono">
-              ID: {selectedPatient.id}
+            <span
+              onClick={() => {
+                if (selectedPatient.id) {
+                  navigator.clipboard.writeText(selectedPatient.id);
+                  toast("Đã sao chép mã khách hàng đầy đủ!", "success");
+                }
+              }}
+              className="text-[10px] bg-indigo-50 hover:bg-indigo-100 border border-indigo-150 text-indigo-700 px-2 py-0.5 rounded-lg font-mono cursor-pointer transition-colors duration-150 select-none"
+              title="Nhấp để sao chép mã đầy đủ"
+            >
+              ID: {selectedPatient.id?.substring(0, 8).toUpperCase() || ""}
             </span>
           </h3>
 
@@ -267,14 +296,24 @@ export default function PatientRegistry({
             )}
           </div>
 
-          {/* Check-in visit button */}
+          {/* Check-in visit and Delete buttons */}
           {(currentUser.role === "receptionist" || currentUser.role === "manager") && (
-            <button
-              onClick={onCheckInClick}
-              className="w-full mt-4 flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl transition duration-200 text-xs shadow-md shadow-indigo-150 cursor-pointer"
-            >
-              <Stethoscope className="w-4 h-4" /> Tiếp Nhận Khám Bệnh
-            </button>
+            <div className="flex gap-2 mt-4">
+              <button
+                onClick={onCheckInClick}
+                className="flex-1 flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl transition duration-200 text-xs shadow-md shadow-indigo-150 cursor-pointer"
+              >
+                <Stethoscope className="w-4 h-4" /> Tiếp Nhận Khám Bệnh
+              </button>
+              <button
+                type="button"
+                onClick={handleDeletePatient}
+                className="bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 font-bold px-4 rounded-xl transition duration-200 text-xs cursor-pointer flex items-center justify-center shrink-0"
+                title="Xóa hồ sơ bệnh nhân"
+              >
+                <Trash2 className="w-4.5 h-4.5" />
+              </button>
+            </div>
           )}
         </div>
       ) : (
